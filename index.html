@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>출석코드 공유소</title>
+  <meta name="description" content="LMS 출석 코드를 올린 만큼 볼 수 있는 실시간 공유 보드 (모의 프로젝트)" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">#</span>
+      <span class="brand-name">출석코드 공유소</span>
+      <span class="mock-badge">모의 프로젝트</span>
+    </div>
+    <div class="session" id="session" hidden>
+      <span class="live" id="live" data-state="off"><i></i><span id="live-text">연결 중</span></span>
+      <span class="me" id="me-nick"></span>
+      <span class="credit-pill" title="남은 열람권">열람권 <b id="credit-pill">0</b></span>
+      <button class="btn ghost sm" id="logout">로그아웃</button>
+    </div>
+  </header>
+
+  <!-- 설정 안내 (config.js 미설정) -->
+  <main id="view-setup" class="center-view" hidden>
+    <section class="card narrow">
+      <h1>Supabase 연결 설정이 필요해요</h1>
+      <p class="muted"><code>config.js</code>에 프로젝트 URL과 anon(publishable) 키를 넣어 주세요. 자세한 방법은 README를 참고하세요.</p>
+    </section>
+  </main>
+
+  <!-- 로그인 / 회원가입 -->
+  <main id="view-auth" class="center-view" hidden>
+    <section class="card narrow">
+      <h1>코드를 올린 만큼<br />남의 코드를 볼 수 있어요</h1>
+      <p class="muted">LMS 출석 코드(4자리, 10분 유효)를 1개 올리면 열람권이 1개 생겨요.</p>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" class="tab" data-tab="login" aria-selected="true">로그인</button>
+        <button role="tab" class="tab" data-tab="signup" aria-selected="false">회원가입</button>
+      </div>
+
+      <form id="form-auth" class="stack" novalidate>
+        <label class="field" id="field-nick" hidden>
+          <span>닉네임 <small class="muted">(다른 사람에게 보이는 이름)</small></span>
+          <input name="nickname" maxlength="20" autocomplete="nickname" placeholder="예: 컴학26" />
+        </label>
+        <label class="field">
+          <span>이메일</span>
+          <input name="email" type="email" required autocomplete="email" placeholder="you@korea.ac.kr" />
+        </label>
+        <label class="field">
+          <span>비밀번호 <small class="muted">(6자 이상)</small></span>
+          <input name="password" type="password" required minlength="6" autocomplete="current-password" />
+        </label>
+        <button class="btn primary block" type="submit" id="auth-submit">로그인</button>
+        <p class="form-msg" id="auth-msg" role="status"></p>
+      </form>
+    </section>
+  </main>
+
+  <!-- 메인 보드 -->
+  <main id="view-app" class="board" hidden>
+    <section class="card upload">
+      <div class="section-head">
+        <h2>코드 올리기</h2>
+        <span class="muted small">올리면 열람권 +1</span>
+      </div>
+      <form id="form-upload" class="upload-grid" novalidate>
+        <label class="field course">
+          <span>과목 / 분반</span>
+          <input name="course" list="course-list" maxlength="40" required placeholder="예: 자료구조 01분반" autocomplete="off" />
+          <datalist id="course-list"></datalist>
+        </label>
+        <label class="field code">
+          <span>출석 코드</span>
+          <input name="code" class="code-input" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required placeholder="0000" autocomplete="off" />
+        </label>
+        <label class="field minutes">
+          <span>남은 시간</span>
+          <select name="minutes">
+            <option value="10" selected>10분 (방금 공지)</option>
+            <option value="9">9분</option>
+            <option value="8">8분</option>
+            <option value="7">7분</option>
+            <option value="6">6분</option>
+            <option value="5">5분</option>
+            <option value="4">4분</option>
+            <option value="3">3분</option>
+            <option value="2">2분</option>
+            <option value="1">1분</option>
+          </select>
+        </label>
+        <button class="btn primary" type="submit" id="upload-submit">올리기</button>
+      </form>
+    </section>
+
+    <section class="stats" aria-label="내 현황">
+      <div class="stat"><span class="stat-label">올린 코드</span><b id="stat-uploaded">0</b></div>
+      <div class="stat"><span class="stat-label">연 코드</span><b id="stat-unlocked">0</b></div>
+      <div class="stat accent"><span class="stat-label">남은 열람권</span><b id="stat-credits">0</b></div>
+    </section>
+
+    <section class="feed">
+      <div class="section-head wrap">
+        <h2>지금 올라온 코드</h2>
+        <div class="feed-tools">
+          <input id="filter" class="search" type="search" placeholder="과목 검색" aria-label="과목 검색" />
+          <label class="toggle"><input type="checkbox" id="show-expired" /> 만료 포함</label>
+        </div>
+      </div>
+      <div id="cards" class="cards" aria-live="polite"></div>
+      <p id="empty" class="empty" hidden>아직 유효한 코드가 없어요. 첫 코드를 올려 보세요.</p>
+    </section>
+
+    <details class="card jsonlog" id="jsonlog">
+      <summary>
+        <span>실시간 JSON 로그</span>
+        <span class="muted small" id="log-count">0건</span>
+      </summary>
+      <p class="muted small">Supabase Realtime이 보내는 <code>codes</code> 테이블 변경 이벤트 원문이에요. 코드 숫자는 별도 테이블에 있어서 여기엔 나타나지 않아요.</p>
+      <pre id="log"></pre>
+    </details>
+  </main>
+
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <footer class="foot">모의 프로젝트 — 실제 수업 출석에 사용하지 않습니다.</footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
