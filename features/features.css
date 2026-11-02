@@ -1,0 +1,6 @@
+/* features/features.css — 기능 팀 스타일 (core/core.css 는 수정하지 마세요)
+ *
+ * 규칙: 클래스 이름은 .feat-<기능id>- 로 시작   예) .feat-gacha-wheel
+ * core 의 색 변수(var(--accent), var(--ok), var(--bad), var(--surface-2) …)와
+ * 버튼 클래스(.btn .primary .ghost .soft .sm)는 그대로 가져다 써도 됩니다.
+ */

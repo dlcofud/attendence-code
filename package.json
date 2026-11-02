@@ -1,0 +1,10 @@
+{
+  "name": "attendence-code",
+  "private": true,
+  "type": "module",
+  "description": "출석코드 공유소 (모의 프로젝트) — 정적 사이트, 빌드 없음",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "serve": "python -m http.server 8000"
+  }
+}

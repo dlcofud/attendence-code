@@ -1,107 +1,80 @@
 # 출석코드 공유소 (모의 프로젝트)
 
-LMS 출석 코드(숫자 4자리, 10분 유효)를 **올린 만큼만 남의 코드를 볼 수 있는** 실시간 공유 웹사이트입니다.
+LMS 출석 코드(숫자 4자리, 10분 유효)를 올리고, **확인받은 만큼 남의 코드를 볼 수 있는** 실시간 공유 웹사이트입니다.
 수업용 모의 프로젝트이며 실제 출석에는 사용하지 않습니다.
 
-- 프론트엔드: 순수 HTML/CSS/JS (빌드 없음) → GitHub Pages로 배포
-- 백엔드: Supabase (Auth · Postgres · Row Level Security · Realtime)
+- 프론트엔드: HTML/CSS/ES 모듈 (빌드 없음) → GitHub Pages
+- 백엔드: Supabase (Auth · Postgres · RLS · Realtime)
+- 협업: core / features 두 영역으로 분리 → [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## 규칙
 
-| 동작 | 결과 |
+| 개념 | 내용 |
 | --- | --- |
-| 코드 1개 올리기 | 열람권 +1 |
-| 남의 코드 1개 열기 | 열람권 -1 (이미 연 코드는 다시 봐도 무료) |
-| 만료된 코드 열기 | 거절, 열람권 차감 없음 |
-| 같은 과목에 연달아 올리기 | 내 코드가 유효한 동안은 거절 (열람권 부풀리기 방지) |
-| 연 코드 평가 | "맞았어요 / 틀렸어요" — 틀렸다는 제보가 많으면 경고 표시 |
+| **과목 선택** | 고려대 2026-2학기 학부 개설과목 목록에서 검색("자료" → 자료구조) 후 분반 선택. 목록에 없으면 직접 입력 |
+| **세션** | 같은 과목·분반(학수번호-분반)에 유효시간 안에 올라온 코드 묶음 |
+| **업로드** | 누구나 가능. 세션당 1인 1회. 그 세션을 열람한 사람은 올릴 수 없음 |
+| **확인(검증)** | 다른 사람과 같은 숫자를 올렸거나, 열람자에게 '맞았어요'를 받으면(맞음 > 틀림) → **열람권 +1** |
+| **틀림** | '틀렸어요' 2개 이상이고 맞음보다 많으면 후보에서 제외, 그 업로드의 보상도 취소 |
+| **열람** | 열람권 1개로 세션 전체(틀림 제외 후보, 믿을 만한 순)를 봄. 직접 올린 세션은 열 수 없음 |
+| **열람권** | (확인된 내 업로드 수) + (장부 합계: 열람 −1, features 지급·차감) |
 
-열람권 = (내가 올린 코드 수) − (내가 연 코드 수). 이 계산과 모든 쓰기는 **서버(Postgres 함수)에서만** 일어나므로 브라우저에서 값을 조작해도 소용없습니다.
+모든 판정과 열람권 계산은 서버(Postgres 함수)에서만 일어납니다.
+
+### 왜 이렇게 했나
+
+- **다수가 올리고 틀린 것만 제외:** 한 사람만 보상받으면 아무도 안 올립니다. 대신 "확인된 업로드"에만 보상해서 가짜 코드로 열람권을 모으는 걸 막습니다.
+- **열어 본 사람은 업로드 금지:** 연 코드를 그대로 다시 올려 열람권을 돌려받는 구멍(v1 버그)을 막습니다.
+- **업로더는 다른 후보 숫자를 못 봄:** 아무 숫자나 올려서 세션을 공짜로 들여다보는 걸 막습니다.
 
 ## 구조
 
 ```
-index.html          화면
-style.css           스타일 (라이트/다크 모드, 모바일 대응)
-app.js              로그인 · 올리기 · 열기 · 평가 · 실시간 구독
-config.js           Supabase URL + anon 키
-supabase/schema.sql 테이블 · RLS · RPC · Realtime 설정 (한 번 실행)
+index.html                 화면 뼈대
+config.js                  Supabase URL + publishable 키
+core/                      ── core 팀 ──
+  main.js                  시작점 (로그인 후 연결)
+  acs.js                   features 에 주는 공용 API (ACS)
+  board.js                 업로드 폼 · 세션 카드 · 내 현황
+  coursePicker.js          개설과목 검색·분반 선택
+  auth.js / realtime.js / api.js / ui.js
+  core.css
+data/courses.json          고려대 학부 개설과목 (학기마다 갱신)
+tools/courses/             개설과목 수집기 + 갱신 방법
+supabase/core/schema.sql   core 스키마 (테이블 · RLS · RPC · 실시간)
+features/                  ── features 팀 ──
+  index.js                 기능 등록 목록
+  _template/feature.js     기능 템플릿
+  features.css
+supabase/features/         기능 팀 SQL (+ _template.sql)
+scripts/check.mjs          PR 자동 검사 (.github/workflows/check.yml)
 ```
 
-### 데이터가 새지 않는 이유
+## 설정
 
-- `codes` 테이블: 과목, 올린 사람, 만료 시각, 열람 수 — **숫자 없음**. 로그인한 모두가 읽을 수 있고 Realtime으로 JSON 이벤트가 전송됩니다.
-- `code_secrets` 테이블: 실제 4자리 숫자. RLS로 **올린 사람 본인 + 열람권을 써서 연 사람**만 읽을 수 있습니다.
-- `unlocks`, `votes`: 본인 기록만 읽을 수 있습니다.
-- insert/update/delete 정책이 없어서 클라이언트는 테이블에 직접 쓸 수 없고, `submit_code` / `unlock_code` / `vote_code` RPC로만 바꿀 수 있습니다.
-- 같은 사용자의 동시 요청은 프로필 행 잠금으로 직렬화되어 열람권을 두 번 쓸 수 없습니다.
-
-## 설정 방법
-
-### 1. Supabase 스키마 적용
-
-Supabase 대시보드 → **SQL Editor** → `supabase/schema.sql` 내용을 붙여넣고 **Run**.
-(여러 번 실행해도 안전합니다.)
-
-### 2. 이메일 로그인 설정
-
-대시보드 → **Authentication**
-
-1. **Sign In / Providers → Email**: 켜져 있는지 확인
-2. **URL Configuration**
+1. **스키마:** Supabase SQL Editor 에서 `supabase/core/schema.sql` 실행 (v1 테이블이 있으면 자동 정리)
+2. **로그인 URL:** Authentication → URL Configuration
    - Site URL: `https://dlcofud.github.io/attendence-code/`
-   - Redirect URLs에 추가: `https://dlcofud.github.io/attendence-code/**`, 로컬 테스트용 `http://localhost:8000/**`
-3. Supabase 기본 메일 발송은 **시간당 몇 통**으로 제한돼 있어요. 여러 계정으로 테스트할 땐 Email 설정의 **Confirm email**을 잠시 꺼 두면 편합니다.
+   - Redirect URLs: `https://dlcofud.github.io/attendence-code/**`, `http://localhost:8000/**`
+3. **키:** `config.js` 에 Project URL 과 publishable 키 (service_role/secret 키는 절대 넣지 않기)
+4. **배포:** `main` 에 push → Settings → Pages (Deploy from a branch, `main` / root)
 
-### 3. `config.js`에 키 넣기
+### 이메일 인증 (시연 전에 켜기)
 
-대시보드 → **Project Settings → API Keys** 에서 `anon` `public` 키(또는 publishable 키)를 복사해 `SUPABASE_ANON_KEY`에 넣습니다.
-이 키는 공개돼도 되는 키입니다. **`service_role` / secret 키는 절대 넣지 마세요.**
+지금은 개발 편의를 위해 꺼져 있습니다. 끄면 가짜 이메일로 부계정을 만들어 열람권을 모을 수 있으니 시연 전에는 켜세요.
+Supabase 기본 메일 서버는 **프로젝트 팀원 이메일에만** 발송하므로, 그냥 켜면 아무도 가입하지 못합니다.
 
-### 4. 로컬에서 실행
+1. Resend·Brevo 등 메일 발송 서비스에서 SMTP 정보 발급
+2. Authentication → Emails → SMTP Settings 에 입력
+3. Authentication → Sign In / Providers → **Confirm email** 켜기
 
-```bash
-python -m http.server 8000
-# 브라우저에서 http://localhost:8000
-```
-
-### 5. GitHub Pages 배포
+## 로컬 실행
 
 ```bash
-git add .
-git commit -m "출석코드 공유소 초기 버전"
-git branch -M main
-git push -u origin main
+python -m http.server 8000   # → http://localhost:8000
 ```
 
-GitHub 저장소 → **Settings → Pages** → Source: *Deploy from a branch*, Branch: `main` / `(root)` → Save.
-1~2분 뒤 `https://dlcofud.github.io/attendence-code/` 에서 열립니다.
+## 실시간
 
-## 실시간(JSON) 동작
-
-`app.js`는 `codes` 테이블의 `postgres_changes`를 구독합니다.
-
-- 누가 코드를 올리면 `INSERT` 이벤트 → 모든 접속자 화면에 카드가 즉시 추가
-- 누가 코드를 열거나 평가하면 `UPDATE` 이벤트 → 열람 수·평가 수가 즉시 갱신
-- 화면 아래 **실시간 JSON 로그**에서 받은 이벤트 원문을 확인할 수 있습니다
-
-```json
-{
-  "eventType": "INSERT",
-  "table": "codes",
-  "new": {
-    "id": 12,
-    "course": "자료구조 01분반",
-    "uploader_nickname": "민수",
-    "created_at": "2026-11-02T01:03:00+00:00",
-    "expires_at": "2026-11-02T01:11:00+00:00",
-    "unlock_count": 0, "ok_count": 0, "bad_count": 0
-  }
-}
-```
-
-## 확장 아이디어
-
-- 틀렸다는 제보가 일정 수를 넘은 코드는 올린 사람의 열람권 회수
-- 과목 목록을 고정(드롭다운)해 오타로 과목이 갈라지는 것 방지
-- 학교 이메일 도메인만 가입 허용
+`sessions`(모두), `submissions`·`credit_ledger`(RLS 로 본인 것만) 변경을 구독합니다.
+화면 아래 **실시간 JSON 로그**에서 이벤트 원문을 볼 수 있습니다. 남의 코드 숫자는 실시간으로 전송되지 않습니다.

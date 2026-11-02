@@ -4,9 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>출석코드 공유소</title>
-  <meta name="description" content="LMS 출석 코드를 올린 만큼 볼 수 있는 실시간 공유 보드 (모의 프로젝트)" />
+  <meta name="description" content="LMS 출석 코드를 올리고 확인받은 만큼 볼 수 있는 실시간 공유 보드 (모의 프로젝트)" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="core/core.css" />
+  <link rel="stylesheet" href="features/features.css" />
 </head>
 <body>
   <header class="topbar">
@@ -27,15 +28,15 @@
   <main id="view-setup" class="center-view" hidden>
     <section class="card narrow">
       <h1>Supabase 연결 설정이 필요해요</h1>
-      <p class="muted"><code>config.js</code>에 프로젝트 URL과 anon(publishable) 키를 넣어 주세요. 자세한 방법은 README를 참고하세요.</p>
+      <p class="muted"><code>config.js</code>에 프로젝트 URL과 publishable 키를 넣어 주세요. 자세한 방법은 README를 참고하세요.</p>
     </section>
   </main>
 
   <!-- 로그인 / 회원가입 -->
   <main id="view-auth" class="center-view" hidden>
     <section class="card narrow">
-      <h1>코드를 올린 만큼<br />남의 코드를 볼 수 있어요</h1>
-      <p class="muted">LMS 출석 코드(4자리, 10분 유효)를 1개 올리면 열람권이 1개 생겨요.</p>
+      <h1>코드를 올리고 확인받으면<br />남의 코드를 볼 수 있어요</h1>
+      <p class="muted">LMS 출석 코드(4자리, 10분 유효)를 올리고, 다른 사람 코드와 일치하거나 '맞았어요'를 받으면 열람권이 1개 생겨요.</p>
 
       <div class="tabs" role="tablist">
         <button role="tab" class="tab" data-tab="login" aria-selected="true">로그인</button>
@@ -66,14 +67,13 @@
     <section class="card upload">
       <div class="section-head">
         <h2>코드 올리기</h2>
-        <span class="muted small">올리면 열람권 +1</span>
+        <span class="muted small">확인되면 열람권 +1</span>
       </div>
       <form id="form-upload" class="upload-grid" novalidate>
-        <label class="field course">
+        <div class="field course">
           <span>과목 / 분반</span>
-          <input name="course" list="course-list" maxlength="40" required placeholder="예: 자료구조 01분반" autocomplete="off" />
-          <datalist id="course-list"></datalist>
-        </label>
+          <div id="course-picker"></div>
+        </div>
         <label class="field code">
           <span>출석 코드</span>
           <input name="code" class="code-input" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required placeholder="0000" autocomplete="off" />
@@ -99,28 +99,32 @@
 
     <section class="stats" aria-label="내 현황">
       <div class="stat"><span class="stat-label">올린 코드</span><b id="stat-uploaded">0</b></div>
-      <div class="stat"><span class="stat-label">연 코드</span><b id="stat-unlocked">0</b></div>
+      <div class="stat"><span class="stat-label">확인됨</span><b id="stat-verified">0</b></div>
+      <div class="stat"><span class="stat-label">확인 대기</span><b id="stat-pending">0</b></div>
       <div class="stat accent"><span class="stat-label">남은 열람권</span><b id="stat-credits">0</b></div>
     </section>
 
     <section class="feed">
       <div class="section-head wrap">
-        <h2>지금 올라온 코드</h2>
+        <h2>지금 열린 세션</h2>
         <div class="feed-tools">
-          <input id="filter" class="search" type="search" placeholder="과목 검색" aria-label="과목 검색" />
-          <label class="toggle"><input type="checkbox" id="show-expired" /> 만료 포함</label>
+          <input id="filter" class="search" type="search" placeholder="과목·학수번호 검색" aria-label="과목 검색" />
+          <label class="toggle"><input type="checkbox" id="show-expired" /> 종료 포함</label>
         </div>
       </div>
       <div id="cards" class="cards" aria-live="polite"></div>
-      <p id="empty" class="empty" hidden>아직 유효한 코드가 없어요. 첫 코드를 올려 보세요.</p>
+      <p id="empty" class="empty" hidden></p>
     </section>
+
+    <!-- features 팀 영역: features/index.js 에 등록한 기능이 여기에 카드로 붙습니다 -->
+    <div id="features" class="features" hidden></div>
 
     <details class="card jsonlog" id="jsonlog">
       <summary>
         <span>실시간 JSON 로그</span>
         <span class="muted small" id="log-count">0건</span>
       </summary>
-      <p class="muted small">Supabase Realtime이 보내는 <code>codes</code> 테이블 변경 이벤트 원문이에요. 코드 숫자는 별도 테이블에 있어서 여기엔 나타나지 않아요.</p>
+      <p class="muted small">Supabase Realtime 이 보내는 이벤트 원문이에요. <code>sessions</code> 는 모두에게, <code>submissions</code>·<code>credit_ledger</code> 는 내 것만 옵니다. 남의 코드 숫자는 여기에 나타나지 않아요.</p>
       <pre id="log"></pre>
     </details>
   </main>
@@ -131,6 +135,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
   <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="core/main.js"></script>
 </body>
 </html>

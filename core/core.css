@@ -154,10 +154,13 @@ code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); 
 .upload-grid { display: grid; gap: 12px; grid-template-columns: 1fr; align-items: end; }
 .code-input { font-family: var(--mono) !important; font-size: 1.35rem !important; letter-spacing: .45em; text-align: center; }
 @media (min-width: 720px) {
-  .upload-grid { grid-template-columns: minmax(0, 2fr) 150px 175px auto; }
+  .upload-grid { grid-template-columns: minmax(0, 2fr) 140px 165px auto; align-items: start; }
+  .upload-grid > .btn { margin-top: 26px; }
+  .upload-grid .field.code, .upload-grid .field.minutes { align-self: start; }
 }
 
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 520px) { .stats { grid-template-columns: repeat(2, 1fr); } }
 .stat {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 12px 14px; display: grid; gap: 2px;
@@ -207,6 +210,66 @@ code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); 
 .tag.warn { background: var(--bad-soft); color: var(--bad); }
 
 .empty { text-align: center; color: var(--muted); padding: 32px 0; margin: 0; }
+
+/* ---------- 세션 카드 v2 ---------- */
+.cc-right { display: grid; justify-items: end; gap: 4px; }
+.cc-body { display: grid; gap: 8px; }
+.cc-note { margin: 0; font-size: .82rem; }
+.cand {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 10px;
+  padding: 8px 10px; border-radius: 10px; background: var(--surface-2);
+}
+.cand.top { outline: 1px solid color-mix(in srgb, var(--ok) 45%, transparent); }
+.cand.locked { background: transparent; padding: 0; grid-template-columns: 1fr auto; }
+.cand .digits { font-size: 1.55rem; }
+.cand-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cand .votes { grid-column: 1 / -1; justify-content: flex-end; }
+.chip { display: inline-block; font-size: .72rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); margin-left: 4px; }
+.chip.verified { background: var(--ok-soft); color: var(--ok); }
+.chip.wrong { background: var(--bad-soft); color: var(--bad); }
+.chip.pending { background: var(--accent-soft); color: var(--accent); }
+.code-card.uploader { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+
+/* ---------- 과목 선택기 ---------- */
+.picker { position: relative; display: grid; gap: 6px; }
+.pk-input {
+  font: inherit; font-weight: 500; font-size: 1rem; width: 100%; min-width: 0;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--text);
+}
+.pk-input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 1px; border-color: var(--accent); }
+.pk-list {
+  position: absolute; z-index: 20; top: 46px; left: 0; right: 0;
+  max-height: 320px; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(16, 24, 40, .14); padding: 6px;
+}
+.pk-group {
+  position: sticky; top: -6px; z-index: 1; background: var(--surface);
+  padding: 8px 8px 4px; font-size: .9rem; border-bottom: 1px solid var(--line);
+}
+.pk-group .muted { font-size: .78rem; font-weight: 500; }
+.pk-opt {
+  display: grid; grid-template-columns: 56px minmax(0, 90px) 1fr; gap: 8px; align-items: center;
+  width: 100%; text-align: left; font: inherit; font-size: .88rem; font-weight: 500; color: var(--text);
+  background: transparent; border: 0; border-radius: 8px; padding: 7px 8px; cursor: pointer;
+}
+.pk-opt:hover, .pk-opt.active { background: var(--accent-soft); }
+.pk-sec { font-weight: 700; color: var(--accent); }
+.pk-prof, .pk-time { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-time { font-size: .78rem; }
+.pk-empty { padding: 12px; color: var(--muted); font-size: .88rem; font-weight: 500; }
+.pk-chip {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; border: 1px solid var(--accent); border-radius: 10px; background: var(--accent-soft);
+  font-weight: 500;
+}
+.pk-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-weight: 500; }
+.linklike { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; }
+
+/* ---------- features 영역 ---------- */
+.features { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.feature-body { display: grid; gap: 10px; }
 
 .jsonlog summary { cursor: pointer; display: flex; justify-content: space-between; font-weight: 700; }
 .jsonlog pre {
