@@ -61,6 +61,7 @@ create table if not exists public.votes (
   created_at timestamptz not null default now(),
   primary key (user_id, code_id)
 );
+create index if not exists votes_code_idx on public.votes (code_id);
 
 -- ---------------------------------------------------------------------
 -- 2. RLS (행 수준 보안)
